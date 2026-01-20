@@ -14,7 +14,8 @@ PARAMS = {
     "Vindhastighed": "wind_speed",
     "Luftfugtighed": "humidity",
     "Lufttryk": "pressure",
-    "Solskinstimer": "sun_last1h_glob"
+    "Solskinstimer": "sun_last1h_glob",
+    "Sigtbarhed": "visibility"
 }
 
 # Stationer (Navn -> ID)
@@ -31,45 +32,6 @@ STATIONS = {
     "Karup (Midtjylland)": "06068",
     "Hammer Odde Fyr": "06193"
 }
-
-# def fetch_dmi_data(station_id, param_id, start_date, end_date):
-#     # Formater datoer til RFC3339
-#     time_str = f"{start_date.isoformat()}T00:00:00Z/{end_date.isoformat()}T23:59:59Z"
-    
-#     params = {
-#         'parameterId': param_id,
-#         'stationId': station_id,
-#         'datetime': time_str,
-#         'limit': 1000, 
-#         'api-key': ''   
-#     }
-    
-#     try:
-#         response = requests.get(API_BASE, params=params)
-#         response.raise_for_status()
-#         data = response.json()
-        
-#         features = data.get('features', [])
-#         if not features:
-#             return pd.DataFrame()
-            
-#         rows = []
-#         for f in features:
-#             props = f['properties']
-#             rows.append({
-#                 'Tidspunkt': props['observed'],
-#                 'Parameter': props['parameterId'],
-#                 'Værdi': props['value'],
-#                 'Station': props['stationId']
-#             })
-            
-#         df = pd.DataFrame(rows)
-#         df['Tidspunkt'] = pd.to_datetime(df['Tidspunkt'])
-#         return df.sort_values('Tidspunkt')
-
-#     except Exception as e:
-#         st.error(f"Fejl ved hentning af data: {e}")
-#         return pd.DataFrame()
 
 def fetch_dmi_data(station_id, param_id, start_date, end_date):
     # Formater datoer til RFC3339
@@ -95,7 +57,6 @@ def fetch_dmi_data(station_id, param_id, start_date, end_date):
             # Opdater offset for at hente næste side
             params['offset'] = offset
             
-            # Vis brugeren at vi arbejder
             status_text.text(f"Henter data... (Række {offset} fundet indtil videre)")
             
             response = requests.get(API_BASE, params=params)
@@ -142,8 +103,7 @@ st.title("DMI Vejrdata Downloader")
 
 with st.sidebar:
     st.header("Indstillinger")
-    
-    # NYT: Dropdown til stationer
+
     selected_station_name = st.selectbox("Vælg Station", list(STATIONS.keys()))
     station_id = STATIONS[selected_station_name] # Slå ID op baseret på navnet
     
@@ -154,13 +114,12 @@ with st.sidebar:
     min_date_limit = datetime(2011, 1, 1)
     max_date_limit = datetime.now()
     col1, col2 = st.columns(2)
-    # start_d = col1.date_input("Startdato", datetime.now() - timedelta(days=2))
-    # end_d = col2.date_input("Slutdato", datetime.now() - timedelta(days=1))
+
     start_d = col1.date_input(
         "Startdato", 
         value=max_date_limit - timedelta(days=1),
-        min_value=min_date_limit,                   # Låser bagud til 2011
-        max_value=max_date_limit                    # Låser fremad til i dag
+        min_value=min_date_limit, # Låser bagud til 2011
+        max_value=max_date_limit  # Låser fremad til i dag
     )
     
     end_d = col2.date_input(
