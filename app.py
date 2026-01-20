@@ -14,7 +14,7 @@ PARAMS = {
     "Vindhastighed": "wind_speed",
     "Luftfugtighed": "humidity",
     "Lufttryk": "pressure",
-    "Solskinstimer": "sun_last1h"
+    "Solskinstimer": "sun_last1h_glob"
 }
 
 # Stationer (Navn -> ID)
@@ -32,10 +32,50 @@ STATIONS = {
     "Hammer Odde Fyr": "06193"
 }
 
+# def fetch_dmi_data(station_id, param_id, start_date, end_date):
+#     # Formater datoer til RFC3339
+#     time_str = f"{start_date.isoformat()}T00:00:00Z/{end_date.isoformat()}T23:59:59Z"
+    
+#     params = {
+#         'parameterId': param_id,
+#         'stationId': station_id,
+#         'datetime': time_str,
+#         'limit': 1000, 
+#         'api-key': ''   
+#     }
+    
+#     try:
+#         response = requests.get(API_BASE, params=params)
+#         response.raise_for_status()
+#         data = response.json()
+        
+#         features = data.get('features', [])
+#         if not features:
+#             return pd.DataFrame()
+            
+#         rows = []
+#         for f in features:
+#             props = f['properties']
+#             rows.append({
+#                 'Tidspunkt': props['observed'],
+#                 'Parameter': props['parameterId'],
+#                 'Værdi': props['value'],
+#                 'Station': props['stationId']
+#             })
+            
+#         df = pd.DataFrame(rows)
+#         df['Tidspunkt'] = pd.to_datetime(df['Tidspunkt'])
+#         return df.sort_values('Tidspunkt')
+
+#     except Exception as e:
+#         st.error(f"Fejl ved hentning af data: {e}")
+#         return pd.DataFrame()
+
 def fetch_dmi_data(station_id, param_id, start_date, end_date):
     # Formater datoer til RFC3339
     time_str = f"{start_date.isoformat()}T00:00:00Z/{end_date.isoformat()}T23:59:59Z"
     
+    # Base parametre
     params = {
         'parameterId': param_id,
         'stationId': station_id,
@@ -44,17 +84,43 @@ def fetch_dmi_data(station_id, param_id, start_date, end_date):
         'api-key': ''   
     }
     
+    all_features = []
+    offset = 0
+    
+    # Placeholder til statusbesked på skærmen
+    status_text = st.empty()
+    
     try:
-        response = requests.get(API_BASE, params=params)
-        response.raise_for_status()
-        data = response.json()
+        while True:
+            # Opdater offset for at hente næste side
+            params['offset'] = offset
+            
+            # Vis brugeren at vi arbejder
+            status_text.text(f"Henter data... (Række {offset} fundet indtil videre)")
+            
+            response = requests.get(API_BASE, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            features = data.get('features', [])
+            all_features.extend(features)
+            
+            # Hvis vi fik færre end 1000 rækker, er vi færdige
+            if len(features) < 1000:
+                break
+            
+            # Ellers gør klar til næste side
+            offset += 1000
+            
+        # Ryd statusbesked når færdig
+        status_text.empty()
         
-        features = data.get('features', [])
-        if not features:
+        if not all_features:
             return pd.DataFrame()
             
+        # Behandl alle indsamlede data
         rows = []
-        for f in features:
+        for f in all_features:
             props = f['properties']
             rows.append({
                 'Tidspunkt': props['observed'],
@@ -70,7 +136,7 @@ def fetch_dmi_data(station_id, param_id, start_date, end_date):
     except Exception as e:
         st.error(f"Fejl ved hentning af data: {e}")
         return pd.DataFrame()
-
+    
 # --- UI Layout ---
 st.title("DMI Vejrdata Downloader")
 
