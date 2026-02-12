@@ -1,0 +1,8 @@
+dmi_weather.db
+database copy.py
+
+!dmi_stats.db
+
+__pycache__/
+*.pyc
+.env
