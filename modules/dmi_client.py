@@ -18,19 +18,6 @@ PARAMS = {
 # Stationer (Navn -> ID)
 _station_data = pd.read_csv("DMI stations.csv", dtype=str, usecols=[0, 1])
 STATIONS = dict(zip(_station_data.iloc[:, 1], _station_data.iloc[:, 0]))
-# STATIONS = {
-#     "Københavns Lufthavn (Kastrup)": "06180",
-#     "Ødum": "06072",
-#     "Odense Lufthavn": "06120",
-#     "Aalborg Lufthavn": "06030",
-#     "Esbjerg Lufthavn": "06060",
-#     "Roskilde Lufthavn": "06135",
-#     "Rønne (Bornholm)": "06190",
-#     "Skagen Fyr": "06041",
-#     "Sønderborg Lufthavn": "06110",
-#     "Karup (Midtjylland)": "06068",
-#     "Hammer Odde Fyr": "06193"
-# }
 
 def fetch_dmi_data(station_id, param_id, start_date, end_date):
     # Formater datoer til RFC3339

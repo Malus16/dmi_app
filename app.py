@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from modules import dmi_client, database
     
 # --- UI Layout ---
+
 st.title("DMI Vejrdata Downloader")
 
 with st.sidebar:
@@ -18,15 +19,15 @@ with st.sidebar:
 
     selected_param_name = st.selectbox("Parameter", list(dmi_client.PARAMS.keys()))
     
-    min_date_limit = datetime(2011, 1, 1)
+    min_date_limit = datetime(1958, 1, 1)
     max_date_limit = datetime.now()
     col1, col2 = st.columns(2)
 
     start_d = col1.date_input(
         "Startdato", 
-        value=max_date_limit - timedelta(days=1),
-        min_value=min_date_limit, # Låser bagud til 2011
-        max_value=max_date_limit  # Låser fremad til i dag
+        value=max_date_limit - timedelta(days=365),
+        min_value=min_date_limit, # Låser bagud
+        max_value=max_date_limit  # Låser fremad
     )
     
     end_d = col2.date_input(
@@ -79,10 +80,10 @@ if st.session_state['data'] is not None and not st.session_state['data'].empty:
 
     # --- 3. FUN FACTS ---
     st.markdown("---")
-    st.header("🏆 Rekorder & Statistik")
+    st.header("🏆 Rekorder & Statistik (Fra tidligste datapunkt)")
     
     import os
-    if not os.path.exists("dmi_weather.db"):
+    if not os.path.exists("dmi_stats.db"):
         st.warning("⚠️ Database ikke fundet.")
     else:
         extremes = database.get_station_extremes(curr_stat_id)
@@ -119,7 +120,7 @@ if st.session_state['data'] is not None and not st.session_state['data'].empty:
         st.markdown("---")
         
         # Monthly Averages
-        st.subheader("📅 Månedlig Klimanormal (2011-Nu)")
+        st.subheader("📅 Månedlig Klimanormal (Fra tidligste datapunkt)")
         
         months = {
             1: "Januar", 2: "Februar", 3: "Marts", 4: "April",

@@ -9,16 +9,16 @@ API_BASE = "https://opendataapi.dmi.dk/v2/metObs/collections/observation/items"
 
 # We define the data structure here
 STATIONS = {
-    "06180": "Københavns Lufthavn",
-    "06072": "Ødum",
-    "06120": "Odense Lufthavn",
+    # "06180": "Københavns Lufthavn",
+    # "06072": "Ødum",
+    # "06120": "Odense Lufthavn",
     "06190": "Bornholms Lufthavn"
 }
 
 PARAMS = {
     "temp_dry": "Temperatur",
-    "wind_speed": "Vindhastighed",
-    "precip_past10min": "Nedbør 10 min"
+    # "wind_speed": "Vindhastighed",
+    # "precip_past10min": "Nedbør 10 min"
 }
 
 def init_db():
@@ -84,16 +84,39 @@ def fetch_year(station_dmi_id, param_dmi_id, year, s_map, p_map):
     end_str = f"{year}-12-31"
     
     c.execute('''
-        SELECT COUNT(*) FROM observations 
+        SELECT COUNT(DISTINCT substr(observed_at, 1, 7))
+        FROM observations 
         WHERE station_id = ? AND parameter_id = ? AND observed_at >= ? AND observed_at <= ?
     ''', (s_id_int, p_id_int, start_str, end_str))
     
-    # Threshold: 10-min data = ~52,000 rows/year. 
-    # If we have > 50,000, we skip.
-    if c.fetchone()[0] > 50000:
-        print(f"  [SKIP] {station_dmi_id} {year}: Complete.")
+    unique_months = c.fetchone()[0]
+    
+    # Nuværende år skal altid opdateres, da det endnu ikke er færdigt
+    is_current_year = (year == datetime.now().year)
+
+    # For tidligere år: Hvis vi har data fra alle 12 måneder, antager vi året er komplet.
+    # Alternativt kunne vi tjekke på > 330 unikke dage med `substr(observed_at, 1, 10)`.
+    if not is_current_year and unique_months == 12:
+        print(f"  [SKIP] {station_dmi_id} {year}: Complete (12 months present).")
         conn.close()
         return
+    elif not is_current_year and unique_months > 0:
+        # Hvis en station er startet midt i et år (f.eks. Bornholm 1959), vil den have < 12 måneder.
+        # For at vi ikke bliver ved med at hente det samme "ufærdige" år hver gang,
+        # kan vi tjekke, om databasen allerede har mindst det antal unikke dage, der findes for året.
+        c.execute('''
+            SELECT COUNT(DISTINCT substr(observed_at, 1, 10))
+            FROM observations 
+            WHERE station_id = ? AND parameter_id = ? AND observed_at >= ? AND observed_at <= ?
+        ''', (s_id_int, p_id_int, start_str, end_str))
+        unique_days = c.fetchone()[0]
+        
+        # Hvis der er over f.eks. 150 dage, og det lader til vi har hentet alt vi kunne (scriptet kørte færdig sidst),
+        # kan vi også tillade at springe over for ikke at spilde tid på gamle år, der oprigtigt mangler måneder.
+        if unique_days > 200:
+            print(f"  [SKIP] {station_dmi_id} {year}: Assuming complete (Started mid-year? {unique_days} days present).")
+            conn.close()
+            return
 
     conn.close()
     print(f"  [FETCH] {station_dmi_id} {param_dmi_id} {year}...")
@@ -173,5 +196,5 @@ if __name__ == "__main__":
     
     for station_dmi_id in STATIONS.keys():
         for param_dmi_id in PARAMS.keys():
-            for year in range(2011, current_year + 1):
+            for year in range(1959, current_year + 1):
                 fetch_year(station_dmi_id, param_dmi_id, year, station_map, param_map)
