@@ -4,20 +4,50 @@ import streamlit as st
 
 API_BASE = "https://opendataapi.dmi.dk/v2/metObs/collections/observation/items"
 
-# Parameter-liste (Dansk)
-PARAMS = {
-    "Temperatur": "temp_dry",
-    "Nedbør (sidste time)": "precip_past1h",
-    "Vindhastighed": "wind_speed",  
-    "Luftfugtighed": "humidity",
-    "Lufttryk": "pressure",
-    "Solskinstimer": "sun_last1h_glob",
-    "Sigtbarhed": "visibility"
+KNOWN_PARAMS_DK = {
+    "temp_dry": "Temperatur",
+    "precip_past1h": "Nedbør (sidste time)",
+    "precip_past24h": "Nedbør (seneste 24 timer)",
+    "wind_speed": "Vindhastighed",  
+    "humidity": "Luftfugtighed",
+    "pressure": "Lufttryk",
+    "sun_last1h_glob": "Solskinstimer",
+    "visibility": "Sigtbarhed",
+    "cloud_cover": "Skydække",
+    "cloud_height": "Skyhøjde",
+    "wind_dir": "Vindretning",
+    "temp_soil": "Jordtemperatur",
+    "temp_dew": "Dugpunkt",
+    "temp_grass": "Græstemperatur"
 }
 
-# Stationer (Navn -> ID)
-_station_data = pd.read_csv("DMI stations.csv", dtype=str, usecols=[0, 1])
-STATIONS = dict(zip(_station_data.iloc[:, 1], _station_data.iloc[:, 0]))
+def get_param_name(param_id):
+    if param_id in KNOWN_PARAMS_DK:
+        return KNOWN_PARAMS_DK[param_id]
+    return param_id.replace('_', ' ').capitalize()
+
+# Stationer (Navn -> ID) og parameter data
+_station_data = pd.read_csv("DMI stations.csv", dtype=str)
+STATIONS = dict(zip(_station_data['StationName'], _station_data['StationId']))
+
+# Alle parameter_kolonner fra CSV filen (de starter efter StationId og StationName)
+ALL_PARAM_COLUMNS = list(_station_data.columns)[2:]
+
+# Byg PARAMS mapping (Display Navn -> DMI ID) for alle mulige parametre
+PARAMS = {}
+for p in ALL_PARAM_COLUMNS:
+    PARAMS[get_param_name(p)] = p
+
+# Station -> { param_id : start_year } mapping
+STATION_AVAILABLE_PARAMS = {}
+for _, row in _station_data.iterrows():
+    stat_id = row['StationId']
+    p_dict = {}
+    for col in ALL_PARAM_COLUMNS:
+        val = row[col]
+        if pd.notna(val) and val != '-':
+            p_dict[col] = int(val)
+    STATION_AVAILABLE_PARAMS[stat_id] = p_dict
 
 def fetch_dmi_data(station_id, param_id, start_date, end_date):
     # Formater datoer til RFC3339

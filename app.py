@@ -18,15 +18,31 @@ with st.sidebar:
     
     st.caption(f"Stations ID: {station_id}") # Viser ID'et til brugeren for info
 
-    selected_param_name = st.selectbox("Parameter", list(dmi_client.PARAMS.keys()))
+    # Hent mulige parametre for netop denne station
+    avail_params_dict = dmi_client.STATION_AVAILABLE_PARAMS.get(station_id, {})
     
-    min_date_limit = datetime(1958, 1, 1)
+    # Filtrer PARAMS rullelisten: vis kun dem, der findes for stationen
+    available_display_names = [name for name, dmi_id in dmi_client.PARAMS.items() if dmi_id in avail_params_dict]
+    
+    if not available_display_names:
+        st.error("Ingen parametre fundet for denne station i data.")
+        st.stop()
+        
+    selected_param_name = st.selectbox("Parameter", available_display_names)
+    
+    # Hent start_year for den valgte kombo
+    param_dmi_id_ui = dmi_client.PARAMS[selected_param_name]
+    start_year = avail_params_dict[param_dmi_id_ui]
+    
+    st.caption(f"Data tilgængelig fra år {start_year}")
+    
+    min_date_limit = datetime(start_year, 1, 1)
     max_date_limit = datetime.now()
     col1, col2 = st.columns(2)
 
     start_d = col1.date_input(
         "Startdato", 
-        value=max_date_limit - timedelta(days=365),
+        value=max_date_limit - timedelta(days=7),
         min_value=min_date_limit, # Låser bagud
         max_value=max_date_limit  # Låser fremad
     )
