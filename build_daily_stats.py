@@ -31,9 +31,8 @@ def aggregate_data():
     source_conn = sqlite3.connect(SOURCE_DB)
     target_conn = sqlite3.connect(TARGET_DB)
     
-    print("Reading raw data... (This might take a moment)")
+    print("Reading raw data...")
     
-    # 1. Copy Lookup Tables first
     print("  Copying lookup tables...")
     df_stations = pd.read_sql("SELECT * FROM stations", source_conn)
     df_stations.to_sql("stations", target_conn, if_exists="replace", index=False)

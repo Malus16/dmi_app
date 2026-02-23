@@ -135,7 +135,6 @@ def fetch_year(station_dmi_id, param_dmi_id, year, s_map, p_map):
             for f in features:
                 p = f['properties']
                 if p['value'] is not None:
-                    # HERE IS THE MAGIC: We insert Integers, not Strings
                     rows_to_insert.append((
                         s_id_int, 
                         p_id_int, 
