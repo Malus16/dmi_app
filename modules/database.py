@@ -57,3 +57,44 @@ def get_monthly_average(station_dmi_id, month_index):
         
     conn.close()
     return val
+
+def get_period_stats_per_year(station_dmi_id, param_dmi_id, start_md, end_md):
+    """
+    Henter aggregeret statistik (min, max, avg) for en bestemt periode (f.eks. '03-01' til '03-07'),
+    grupperet per år historisk for stationen.
+    """
+    conn = sqlite3.connect(DB_FILE)
+    
+    # Håndtering af årsskift, f.eks. "12-28" til "01-04"
+    if start_md <= end_md:
+        date_condition = f"strftime('%m-%d', s.date) >= '{start_md}' AND strftime('%m-%d', s.date) <= '{end_md}'"
+        year_grouping = "strftime('%Y', s.date)"
+    else:
+        # For datoer, der krydser nytår, grupperer vi januar/februar-dagene ind under det foregående års vintersæson.
+        date_condition = f"(strftime('%m-%d', s.date) >= '{start_md}' OR strftime('%m-%d', s.date) <= '{end_md}')"
+        year_grouping = f"CASE WHEN strftime('%m-%d', s.date) <= '{end_md}' THEN CAST(strftime('%Y', s.date) AS INTEGER) - 1 ELSE CAST(strftime('%Y', s.date) AS INTEGER) END"
+
+    query = f"""
+        SELECT 
+            {year_grouping} as year,
+            MIN(s.min_val) as min_val,
+            MAX(s.max_val) as max_val,
+            AVG(s.avg_val) as avg_val
+        FROM daily_stats s
+        JOIN stations st ON s.station_id = st.id
+        JOIN parameters p ON s.parameter_id = p.id
+        WHERE st.dmi_id = '{station_dmi_id}'
+        AND p.dmi_id = '{param_dmi_id}'
+        AND {date_condition}
+        GROUP BY year
+        ORDER BY year ASC
+    """
+    
+    df = pd.DataFrame()
+    try:
+        df = pd.read_sql(query, conn)
+    except Exception as e:
+        print(f"Error querying period stats: {e}")
+        
+    conn.close()
+    return df

@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 from datetime import datetime, timedelta
 
 from modules import dmi_client, database
@@ -146,6 +147,60 @@ if st.session_state['data'] is not None and not st.session_state['data'].empty:
             st.info(f"Gennemsnittet for **{selected_month_name}** er **{avg_val:.1f} °C**.")
         else:
             st.warning(f"Ingen data for {selected_month_name}.")
+            
+        st.markdown("---")
+        
+        # --- 4. HISTORICAL PERIOD COMPARISON ---
+        st.subheader("📈 Historisk Periode Sammenligning")
+        st.caption("Sammenlign hvordan en bestemt tid på året (f.eks. påskeugen eller sommerferien) har udviklet sig historisk. Det præcise årstal for valget ignoreres – det er kun dato og måned, der tæller.")
+        
+        period_dates = st.date_input(
+            "Vælg datointerval (f.eks. 1. marts til 7. marts):",
+            value=(datetime(datetime.now().year, 3, 1), datetime(datetime.now().year, 3, 7))
+        )
+        
+        if isinstance(period_dates, tuple) and len(period_dates) == 2:
+            start_md = period_dates[0].strftime("%m-%d")
+            end_md = period_dates[1].strftime("%m-%d")
+            
+            # Oversæt det valgte parameternavn ("Temperatur") til DMI ID ("temp_dry")
+            param_dmi_id = dmi_client.PARAMS[curr_param]
+            period_df = database.get_period_stats_per_year(curr_stat_id, param_dmi_id, start_md, end_md)
+            
+            if not period_df.empty:
+                fig2 = go.Figure()
+                
+                # Minimum som lys farve eller fyldområde
+                fig2.add_trace(go.Scatter(
+                    x=period_df['year'], y=period_df['min_val'], 
+                    mode='lines', name='Minimum', line=dict(color='rgba(50, 150, 250, 0.5)', width=1)
+                ))
+                
+                # Gennemsnit i midten som primær linje
+                fig2.add_trace(go.Scatter(
+                    x=period_df['year'], y=period_df['avg_val'], 
+                    mode='lines+markers', name='Gennemsnit', line=dict(color='rgba(20, 200, 50, 1)', width=3)
+                ))
+                
+                # Maksimum
+                fig2.add_trace(go.Scatter(
+                    x=period_df['year'], y=period_df['max_val'], 
+                    mode='lines', name='Maksimum', line=dict(color='rgba(250, 50, 50, 0.5)', width=1)
+                ))
+                
+                fig2.update_layout(
+                    title=f"Historisk udvikling for {period_dates[0].strftime('%d. %b')} - {period_dates[1].strftime('%d. %b')}",
+                    xaxis_title="År",
+                    yaxis_title=curr_param,
+                    hovermode="x unified"
+                )
+                
+                st.plotly_chart(fig2, use_container_width=True)
+                
+                with st.expander("Se data som tabel"):
+                    st.dataframe(period_df.set_index('year'), use_container_width=True)
+            else:
+                st.info("Ingen historisk data for denne periode.")
             
 elif fetch_btn: # Only triggers if we clicked button but got no data
     st.warning("Ingen data fundet.")
